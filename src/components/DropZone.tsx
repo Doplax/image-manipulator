@@ -2,7 +2,8 @@
 
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, ImageIcon } from "lucide-react";
+import { Card, CardBody, Chip } from "@heroui/react";
+import { UploadCloud, ImageIcon } from "lucide-react";
 import { cn, fileToImageFile } from "@/lib/utils";
 import { useImageStore } from "@/store/imageStore";
 
@@ -15,6 +16,8 @@ const ACCEPTED_TYPES = {
   "image/tiff": [".tiff", ".tif"],
   "image/avif": [".avif"],
 };
+
+const FORMATS = ["PNG", "JPG", "WebP", "AVIF", "TIFF", "GIF", "BMP"];
 
 export default function DropZone() {
   const addImages = useImageStore((s) => s.addImages);
@@ -31,69 +34,69 @@ export default function DropZone() {
     onDrop,
     accept: ACCEPTED_TYPES,
     multiple: true,
-    maxSize: 25 * 1024 * 1024, // 25 MB
+    maxSize: 25 * 1024 * 1024,
   });
 
   return (
-    <div
+    <Card
       {...getRootProps()}
       className={cn(
-        "relative flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-12 transition-all duration-200 cursor-pointer select-none",
+        "cursor-pointer transition-all duration-200 border-2 border-dashed",
         isDragActive && !isDragReject
-          ? "border-violet-400 bg-violet-500/10 scale-[1.01]"
+          ? "border-primary bg-primary/5 scale-[1.005]"
           : isDragReject
-          ? "border-red-400 bg-red-500/10"
-          : "border-gray-700 bg-gray-900/50 hover:border-gray-500 hover:bg-gray-900"
+          ? "border-danger bg-danger/5"
+          : "border-default-300 hover:border-default-500 hover:bg-default-100/50"
       )}
+      shadow="none"
     >
-      <input {...getInputProps()} />
+      <CardBody className="flex flex-col items-center justify-center gap-5 py-14 px-6">
+        <input {...getInputProps()} />
 
-      <div
-        className={cn(
-          "flex h-16 w-16 items-center justify-center rounded-full transition-colors",
-          isDragActive && !isDragReject
-            ? "bg-violet-500/20 text-violet-400"
-            : isDragReject
-            ? "bg-red-500/20 text-red-400"
-            : "bg-gray-800 text-gray-400"
-        )}
-      >
-        {isDragActive ? (
-          <ImageIcon size={32} />
-        ) : (
-          <Upload size={32} />
-        )}
-      </div>
+        <div
+          className={cn(
+            "flex h-16 w-16 items-center justify-center rounded-2xl transition-colors",
+            isDragActive && !isDragReject
+              ? "bg-primary/15 text-primary"
+              : isDragReject
+              ? "bg-danger/15 text-danger"
+              : "bg-default-100 text-default-500"
+          )}
+        >
+          {isDragActive ? (
+            <ImageIcon size={30} />
+          ) : (
+            <UploadCloud size={30} />
+          )}
+        </div>
 
-      <div className="text-center">
-        {isDragReject ? (
-          <p className="text-red-400 font-medium">Formato no soportado</p>
-        ) : isDragActive ? (
-          <p className="text-violet-400 font-medium text-lg">¡Suelta las imágenes aquí!</p>
-        ) : (
-          <>
-            <p className="text-gray-200 font-semibold text-lg">
-              Arrastra tus imágenes aquí
-            </p>
-            <p className="text-gray-500 text-sm mt-1">
-              o haz clic para seleccionar archivos
-            </p>
-          </>
-        )}
-      </div>
+        <div className="text-center">
+          {isDragReject ? (
+            <p className="text-danger font-semibold">Formato no soportado</p>
+          ) : isDragActive ? (
+            <p className="text-primary font-semibold text-lg">¡Suelta las imágenes aquí!</p>
+          ) : (
+            <>
+              <p className="font-semibold text-foreground text-lg">
+                Arrastra tus imágenes aquí
+              </p>
+              <p className="text-default-400 text-sm mt-1">
+                o <span className="text-primary cursor-pointer underline underline-offset-2">haz clic para explorar</span>
+              </p>
+            </>
+          )}
+        </div>
 
-      <div className="flex flex-wrap justify-center gap-2 mt-2">
-        {["PNG", "JPG", "WEBP", "AVIF", "TIFF", "GIF", "BMP"].map((fmt) => (
-          <span
-            key={fmt}
-            className="rounded-md bg-gray-800 px-2 py-0.5 text-xs font-mono text-gray-400"
-          >
-            {fmt}
-          </span>
-        ))}
-      </div>
+        <div className="flex flex-wrap justify-center gap-1.5">
+          {FORMATS.map((fmt) => (
+            <Chip key={fmt} size="sm" variant="flat" className="text-xs font-mono">
+              {fmt}
+            </Chip>
+          ))}
+        </div>
 
-      <p className="text-gray-600 text-xs">Máximo 25 MB por imagen</p>
-    </div>
+        <p className="text-default-400 text-xs">Máximo 25 MB por imagen</p>
+      </CardBody>
+    </Card>
   );
 }

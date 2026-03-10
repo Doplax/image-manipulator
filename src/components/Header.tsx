@@ -1,37 +1,78 @@
-import { ImageIcon, Github, Zap } from "lucide-react";
+"use client";
+
+import {
+  Navbar,
+  NavbarBrand,
+  NavbarContent,
+  NavbarItem,
+  Button,
+  Chip,
+} from "@heroui/react";
+import { useTheme } from "next-themes";
+import { ImageIcon, Moon, Sun, Github } from "lucide-react";
 
 export default function Header() {
-  return (
-    <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-50">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600">
-            <ImageIcon size={18} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-white leading-none">Image Manipulator</h1>
-            <p className="text-xs text-gray-500 leading-none mt-0.5">
-              Redimensiona · Quita fondos · Convierte
-            </p>
-          </div>
-        </div>
+  const { resolvedTheme, setTheme } = useTheme();
 
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-gray-800 px-3 py-1 text-xs text-gray-400">
-            <Zap size={12} className="text-amber-400" />
-            Next.js 16 · Vercel Ready
+  return (
+    <Navbar
+      maxWidth="xl"
+      className="border-b border-divider backdrop-blur-md bg-background/70"
+      isBordered
+    >
+      <NavbarBrand>
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground">
+            <ImageIcon size={15} className="text-background" />
           </div>
-          <a
-            href="https://github.com"
+          <span className="font-bold text-foreground text-sm tracking-tight">
+            Image Manipulator
+          </span>
+          <Chip size="sm" variant="flat" className="hidden sm:flex text-xs h-5 px-1">
+            v1.0
+          </Chip>
+        </div>
+      </NavbarBrand>
+
+      <NavbarContent justify="end" className="gap-2">
+        <NavbarItem className="hidden sm:flex">
+          <Chip
+            size="sm"
+            variant="dot"
+            color="success"
+            className="text-xs border-none"
+          >
+            Next.js 16 · Vercel Ready
+          </Chip>
+        </NavbarItem>
+
+        <NavbarItem>
+          <Button
+            as="a"
+            href="https://github.com/Doplax/image-manipulator"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
+            variant="bordered"
+            size="sm"
+            startContent={<Github size={14} />}
+            className="text-xs font-medium"
           >
-            <Github size={14} />
             GitHub
-          </a>
-        </div>
-      </div>
-    </header>
+          </Button>
+        </NavbarItem>
+
+        <NavbarItem>
+          <Button
+            isIconOnly
+            variant="light"
+            size="sm"
+            aria-label="Toggle theme"
+            onPress={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+          >
+            {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          </Button>
+        </NavbarItem>
+      </NavbarContent>
+    </Navbar>
   );
 }
