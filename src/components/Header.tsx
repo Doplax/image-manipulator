@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   Navbar,
   NavbarBrand,
@@ -9,7 +10,11 @@ import {
   Chip,
 } from "@heroui/react";
 import { useTheme } from "next-themes";
-import { ImageIcon, Moon, Sun, Github } from "lucide-react";
+import { ImageIcon, Github } from "lucide-react";
+
+// Rendered only on the client to avoid SSR/hydration mismatch
+// (resolvedTheme is undefined on the server with next-themes)
+const ThemeIcon = dynamic(() => import("@/components/ui/ThemeIcon"), { ssr: false });
 
 export default function Header() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -69,7 +74,7 @@ export default function Header() {
             aria-label="Toggle theme"
             onPress={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           >
-            {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            <ThemeIcon />
           </Button>
         </NavbarItem>
       </NavbarContent>
