@@ -1,7 +1,16 @@
 import { create } from "zustand";
 import type { ImageFile, ManipulationOptions, OutputFormat } from "@/types/image";
 
+export type ToolId = "resize" | "convert" | "background";
+export type AppView = "dashboard" | "tool";
+
 interface ImageStore {
+  // Navigation
+  view: AppView;
+  activeTool: ToolId | null;
+  navigateTo: (tool: ToolId) => void;
+  navigateToDashboard: () => void;
+
   images: ImageFile[];
   selectedImage: ImageFile | null;
   isProcessing: boolean;
@@ -40,6 +49,12 @@ const defaultOptions: ManipulationOptions = {
 };
 
 export const useImageStore = create<ImageStore>((set) => ({
+  // Navigation
+  view: "dashboard",
+  activeTool: null,
+  navigateTo: (tool) => set({ view: "tool", activeTool: tool, images: [], selectedImage: null, processedUrl: null }),
+  navigateToDashboard: () => set({ view: "dashboard", activeTool: null, images: [], selectedImage: null, processedUrl: null }),
+
   images: [],
   selectedImage: null,
   isProcessing: false,

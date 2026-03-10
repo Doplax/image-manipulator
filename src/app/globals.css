@@ -1,8 +1,10 @@
 @import "tailwindcss";
-@import "@heroui/react/styles.css";
+@plugin "../../hero.ts";
+@source "../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
+  --background: #fafafa;
   --foreground: #11181c;
 }
 
@@ -24,31 +26,12 @@
 
 html, body {
   min-height: 100vh;
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 4px;
-}
-.dark ::-webkit-scrollbar-thumb {
-  background: #444;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-
-body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #666; }

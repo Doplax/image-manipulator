@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Card, CardBody, Chip } from "@heroui/react";
+import { Chip } from "@heroui/react";
 import { UploadCloud, ImageIcon } from "lucide-react";
 import { cn, fileToImageFile } from "@/lib/utils";
 import { useImageStore } from "@/store/imageStore";
@@ -38,19 +38,18 @@ export default function DropZone() {
   });
 
   return (
-    <Card
+    <div
       {...getRootProps()}
       className={cn(
-        "cursor-pointer transition-all duration-200 border-2 border-dashed",
+        "cursor-pointer transition-all duration-200 rounded-2xl border-2 border-dashed",
         isDragActive && !isDragReject
           ? "border-primary bg-primary/5 scale-[1.005]"
           : isDragReject
           ? "border-danger bg-danger/5"
-          : "border-default-300 hover:border-default-500 hover:bg-default-100/50"
+          : "border-default-300 hover:border-default-500 hover:bg-default-100/50 dark:border-gray-700 dark:hover:border-gray-500 dark:hover:bg-gray-900/50"
       )}
-      shadow="none"
     >
-      <CardBody className="flex flex-col items-center justify-center gap-5 py-14 px-6">
+      <div className="flex flex-col items-center justify-center gap-5 py-14 px-6">
         <input {...getInputProps()} />
 
         <div
@@ -96,7 +95,7 @@ export default function DropZone() {
         </div>
 
         <p className="text-default-400 text-xs">Máximo 25 MB por imagen</p>
-      </CardBody>
-    </Card>
+      </div>
+    </div>
   );
 }
