@@ -14,7 +14,7 @@ const MODES: {
   badge?: string;
 }[] = [
   {
-    value: "enhance",
+    value: "improve",
     label: "Mejorar calidad",
     description: "Ajuste automático de color, contraste y nitidez mediante IA.",
     icon: <Sparkles size={18} />,

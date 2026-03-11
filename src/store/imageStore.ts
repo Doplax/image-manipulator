@@ -66,7 +66,7 @@ export const useImageStore = create<ImageStore>((set) => ({
   processedUrl: null,
   options: { ...defaultOptions, resize: { ...defaultOptions.resize }, convert: { ...defaultOptions.convert } },
 
-  upscaleMode: "enhance",
+  upscaleMode: "improve",
   setUpscaleMode: (mode) => set({ upscaleMode: mode }),
 
   addImages: (files) =>

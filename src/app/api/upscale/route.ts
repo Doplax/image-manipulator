@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -11,75 +11,91 @@ cloudinary.config({
   secure: true,
 });
 
-export type UpscaleMode = "enhance" | "upscale" | "restore";
+export type UpscaleMode = "improve" | "upscale" | "restore";
 
 /**
- * POST /api/upscale
- * Body (FormData):
- *   - image: File
- *   - mode: "enhance" | "upscale" | "restore"
+ * Cloudinary AI effects by plan:
+ *   e_improve        → FREE — auto colour/contrast/sharpness (replaces e_enhance)
+ *   e_upscale        → PAID add-on — 2× super-resolution
+ *   e_restore        → PAID add-on — artefact/noise removal
  *
- * Flow:
- *  1. Upload the image to Cloudinary (temporary, auto-delete after 1h)
- *  2. Build a transformation URL with the chosen AI effect
- *  3. Fetch the result from Cloudinary and stream it back as a blob
- *  4. Delete the uploaded asset (best-effort cleanup)
+ * Strategy: apply the transformation as an "eager" transformation at upload time.
+ * This forces Cloudinary to process it server-side with proper auth and returns
+ * a signed URL — avoiding the "Bad Request" from unsigned delivery URLs.
  */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("image") as File | null;
-    const mode = (formData.get("mode") as UpscaleMode) ?? "enhance";
+    const mode = (formData.get("mode") as UpscaleMode) ?? "improve";
 
     if (!file) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
-    // --- 1. Upload to Cloudinary ---
+    const effectMap: Record<UpscaleMode, string> = {
+      improve: "improve",      // free — e_improve
+      upscale: "upscale",      // paid add-on — e_upscale
+      restore: "restore",      // paid add-on — e_restore
+    };
+
+    const effect = effectMap[mode] ?? "improve";
+
+    // --- 1. Upload + eager transform in one call ---
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
 
     const uploadResult = await cloudinary.uploader.upload(base64, {
       folder: "image-manipulator-tmp",
-      // Auto-delete after 1 hour — no storage clutter
-      invalidate: true,
       resource_type: "image",
+      // Apply the AI effect eagerly during upload — generates a signed delivery URL
+      eager: [{ effect: `e_${effect}`, format: "png", quality: "auto:best" }],
+      eager_async: false, // wait for eager transformation to complete
     });
 
+    // --- 2. Get the eager result URL ---
+    const eagerResult = uploadResult.eager?.[0];
     const publicId = uploadResult.public_id;
 
-    // --- 2. Build transformation URL ---
-    // Cloudinary AI effects:
-    //   e_enhance       → auto colour/contrast/sharpness boost (free, fast)
-    //   e_upscale       → 2× super-resolution via AI (costs 1 credit)
-    //   e_restore       → artefact removal / photo restoration (costs 1 credit)
-    const effectMap: Record<UpscaleMode, string> = {
-      enhance: "e_enhance",
-      upscale: "e_upscale",
-      restore: "e_restore",
-    };
+    if (!eagerResult?.secure_url) {
+      // Fallback: build URL via SDK (works if unsigned transformations are enabled)
+      const fallbackUrl = cloudinary.url(publicId, {
+        transformation: [{ effect: `e_${effect}` }],
+        format: "png",
+        quality: "auto:best",
+        sign_url: true,
+      });
 
-    const effect = effectMap[mode] ?? "e_enhance";
+      const fallbackResponse = await fetch(fallbackUrl);
+      if (!fallbackResponse.ok) {
+        const body = await fallbackResponse.text();
+        throw new Error(`Cloudinary error: ${fallbackResponse.status} — ${body.slice(0, 200)}`);
+      }
 
-    const transformedUrl = cloudinary.url(publicId, {
-      transformation: [{ effect }],
-      format: "png",
-      quality: "auto:best",
-    });
+      const fallbackBuffer = await fallbackResponse.arrayBuffer();
+      cloudinary.uploader.destroy(publicId).catch(() => {});
 
-    // --- 3. Fetch result and return as binary response ---
-    const imageResponse = await fetch(transformedUrl);
+      return new NextResponse(fallbackBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "image/png",
+          "Content-Disposition": `attachment; filename="enhanced.png"`,
+        },
+      });
+    }
+
+    // --- 3. Fetch the eager-transformed image ---
+    const imageResponse = await fetch(eagerResult.secure_url);
     if (!imageResponse.ok) {
-      throw new Error(`Cloudinary transform failed: ${imageResponse.statusText}`);
+      const body = await imageResponse.text();
+      throw new Error(`Cloudinary delivery error: ${imageResponse.status} — ${body.slice(0, 200)}`);
     }
 
     const imageBuffer = await imageResponse.arrayBuffer();
 
-    // --- 4. Cleanup — delete the temporary asset (best-effort) ---
-    cloudinary.uploader.destroy(publicId, { resource_type: "image" }).catch(() => {
-      // Non-critical, ignore errors
-    });
+    // --- 4. Cleanup ---
+    cloudinary.uploader.destroy(publicId, { resource_type: "image" }).catch(() => {});
 
     return new NextResponse(imageBuffer, {
       status: 200,
