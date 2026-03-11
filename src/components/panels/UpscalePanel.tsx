@@ -17,22 +17,20 @@ const MODES: {
   {
     value: "improve",
     label: "Mejorar calidad",
-    description: "Ajuste automático de color, contraste y nitidez mediante IA.",
+    description: "Ajuste automático de color, contraste y nitidez mediante Cloudinary AI.",
     icon: <Sparkles size={18} />,
   },
   {
     value: "upscale",
     label: "Super-resolución ×2",
-    description: "Duplica la resolución manteniendo nitidez máxima con IA.",
+    description: "Duplica la resolución con interpolación Lanczos de alta calidad.",
     icon: <ZoomIn size={18} />,
-    badge: "1 crédito",
   },
   {
     value: "restore",
     label: "Restaurar foto",
-    description: "Elimina artefactos, ruido y deterioro de fotos antiguas.",
+    description: "Reduce ruido y mejora la nitidez de fotos deterioradas.",
     icon: <Wand2 size={18} />,
-    badge: "1 crédito",
   },
 ];
 
@@ -92,10 +90,10 @@ export default function UpscalePanel() {
       </div>
 
       <div className="rounded-xl border border-default-200 dark:border-gray-800 bg-default-50 dark:bg-gray-900/50 px-4 py-3 space-y-1">
-        <p className="text-xs font-semibold text-default-500">Procesado vía Cloudinary AI</p>
+        <p className="text-xs font-semibold text-default-500">Procesado en servidor</p>
         <p className="text-xs text-default-400 leading-relaxed">
-          La imagen se sube temporalmente, se procesa y se elimina del servidor automáticamente.{" "}
-          Plan gratuito: 25 créditos/mes.
+          <strong>Mejorar calidad</strong> usa Cloudinary AI (plan gratuito: 25 créditos/mes).{" "}
+          <strong>Super-resolución</strong> y <strong>Restaurar</strong> se procesan con Sharp sin créditos.
         </p>
       </div>
 

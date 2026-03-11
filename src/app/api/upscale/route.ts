@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60; // Vercel Hobby plan max is 60s
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -14,16 +15,101 @@ cloudinary.config({
 export type UpscaleMode = "improve" | "upscale" | "restore";
 
 /**
- * Cloudinary AI effects by plan:
- *   e_improve        → FREE — auto colour/contrast/sharpness (replaces e_enhance)
- *   e_upscale        → PAID add-on — 2× super-resolution
- *   e_restore        → PAID add-on — artefact/noise removal
+ * Cloudinary AI effects availability:
+ *   e_improve        → FREE  — auto colour/contrast/sharpness
+ *   e_upscale        → PAID add-on — 2× super-resolution (Bad Request on free plan)
+ *   e_restore        → PAID add-on — artefact removal (Bad Request on free plan)
  *
- * Strategy: apply the transformation as an "eager" transformation at upload time.
- * This forces Cloudinary to process it server-side with proper auth and returns
- * a signed URL — avoiding the "Bad Request" from unsigned delivery URLs.
+ * Strategy:
+ *  - "improve"  → upload to Cloudinary with e_improve eager transformation (free)
+ *  - "upscale"  → Sharp 2× bicubic resize (client-side, no Cloudinary credits needed)
+ *  - "restore"  → Sharp denoise + sharpen (client-side fallback)
+ *
+ * Note: The Cloudinary SDK v2 eager `effect` field uses the effect name WITHOUT
+ * the "e_" prefix (e.g. "improve", not "e_improve"). The "e_" prefix is only for
+ * URL-based transformation strings.
  */
+
+// ─── Sharp-based fallbacks (no Cloudinary credits) ────────────────────────────
+
+async function upscaleWithSharp(buffer: Buffer): Promise<Buffer> {
+  const image = sharp(buffer);
+  const meta = await image.metadata();
+  const w = (meta.width ?? 1000) * 2;
+  const h = (meta.height ?? 1000) * 2;
+  return image
+    .resize(w, h, { kernel: sharp.kernel.lanczos3 })
+    .png({ quality: 100 })
+    .toBuffer();
+}
+
+async function restoreWithSharp(buffer: Buffer): Promise<Buffer> {
+  return sharp(buffer)
+    .median(1)          // mild denoise
+    .sharpen({ sigma: 1.2, m1: 0.5, m2: 0.8 })
+    .png({ quality: 100 })
+    .toBuffer();
+}
+
+// ─── Cloudinary improve (free plan) ───────────────────────────────────────────
+
+async function improveWithCloudinary(
+  base64DataUri: string
+): Promise<{ buffer: ArrayBuffer; publicId: string }> {
+  // Upload with eager e_improve transformation.
+  // SDK v2: effect name WITHOUT "e_" prefix inside the transformation object.
+  const uploadResult = await cloudinary.uploader.upload(base64DataUri, {
+    folder: "image-manipulator-tmp",
+    resource_type: "image",
+    eager: [{ effect: "improve", quality: "auto:best", fetch_format: "png" }],
+    eager_async: false,
+  });
+
+  const publicId = uploadResult.public_id;
+  const eagerUrl = uploadResult.eager?.[0]?.secure_url;
+
+  if (!eagerUrl) {
+    // Eager didn't produce a URL — build a signed delivery URL as fallback
+    const signedUrl = cloudinary.url(publicId, {
+      transformation: [{ effect: "improve", quality: "auto:best", fetch_format: "png" }],
+      sign_url: true,
+      secure: true,
+    });
+
+    const res = await fetch(signedUrl);
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Cloudinary delivery error ${res.status}: ${body.slice(0, 300)}`);
+    }
+    return { buffer: await res.arrayBuffer(), publicId };
+  }
+
+  const res = await fetch(eagerUrl);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Cloudinary delivery error ${res.status}: ${body.slice(0, 300)}`);
+  }
+  return { buffer: await res.arrayBuffer(), publicId };
+}
+
+// ─── Route handler ─────────────────────────────────────────────────────────────
+
 export async function POST(request: NextRequest) {
+  if (
+    !process.env.CLOUDINARY_CLOUD_NAME ||
+    !process.env.CLOUDINARY_API_KEY ||
+    !process.env.CLOUDINARY_API_SECRET
+  ) {
+    console.error("[/api/upscale] Missing Cloudinary environment variables");
+    return NextResponse.json(
+      {
+        error:
+          "Cloudinary not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.",
+      },
+      { status: 500 }
+    );
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get("image") as File | null;
@@ -33,71 +119,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
-    const effectMap: Record<UpscaleMode, string> = {
-      improve: "improve",      // free — e_improve
-      upscale: "upscale",      // paid add-on — e_upscale
-      restore: "restore",      // paid add-on — e_restore
-    };
-
-    const effect = effectMap[mode] ?? "improve";
-
-    // --- 1. Upload + eager transform in one call ---
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
+    const inputBuffer = Buffer.from(arrayBuffer);
+    let outputBytes: Uint8Array;
+    let cleanupPublicId: string | null = null;
 
-    const uploadResult = await cloudinary.uploader.upload(base64, {
-      folder: "image-manipulator-tmp",
-      resource_type: "image",
-      // Apply the AI effect eagerly during upload — generates a signed delivery URL
-      eager: [{ effect: `e_${effect}`, format: "png", quality: "auto:best" }],
-      eager_async: false, // wait for eager transformation to complete
-    });
-
-    // --- 2. Get the eager result URL ---
-    const eagerResult = uploadResult.eager?.[0];
-    const publicId = uploadResult.public_id;
-
-    if (!eagerResult?.secure_url) {
-      // Fallback: build URL via SDK (works if unsigned transformations are enabled)
-      const fallbackUrl = cloudinary.url(publicId, {
-        transformation: [{ effect: `e_${effect}` }],
-        format: "png",
-        quality: "auto:best",
-        sign_url: true,
-      });
-
-      const fallbackResponse = await fetch(fallbackUrl);
-      if (!fallbackResponse.ok) {
-        const body = await fallbackResponse.text();
-        throw new Error(`Cloudinary error: ${fallbackResponse.status} — ${body.slice(0, 200)}`);
-      }
-
-      const fallbackBuffer = await fallbackResponse.arrayBuffer();
-      cloudinary.uploader.destroy(publicId).catch(() => {});
-
-      return new NextResponse(fallbackBuffer, {
-        status: 200,
-        headers: {
-          "Content-Type": "image/png",
-          "Content-Disposition": `attachment; filename="enhanced.png"`,
-        },
-      });
+    if (mode === "improve") {
+      // Free Cloudinary AI enhancement
+      const base64 = `data:${file.type};base64,${inputBuffer.toString("base64")}`;
+      const { buffer, publicId } = await improveWithCloudinary(base64);
+      outputBytes = new Uint8Array(buffer);
+      cleanupPublicId = publicId;
+    } else if (mode === "upscale") {
+      // 2× resolution via Sharp (Cloudinary e_upscale requires paid add-on)
+      outputBytes = await upscaleWithSharp(inputBuffer);
+    } else {
+      // "restore" — denoise + sharpen via Sharp
+      outputBytes = await restoreWithSharp(inputBuffer);
     }
 
-    // --- 3. Fetch the eager-transformed image ---
-    const imageResponse = await fetch(eagerResult.secure_url);
-    if (!imageResponse.ok) {
-      const body = await imageResponse.text();
-      throw new Error(`Cloudinary delivery error: ${imageResponse.status} — ${body.slice(0, 200)}`);
+    // Fire-and-forget cleanup of the temporary Cloudinary upload
+    if (cleanupPublicId) {
+      cloudinary.uploader.destroy(cleanupPublicId, { resource_type: "image" }).catch(() => {});
     }
 
-    const imageBuffer = await imageResponse.arrayBuffer();
-
-    // --- 4. Cleanup ---
-    cloudinary.uploader.destroy(publicId, { resource_type: "image" }).catch(() => {});
-
-    return new NextResponse(imageBuffer, {
+    return new NextResponse(outputBytes as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "image/png",
