@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useImageStore } from "@/store/imageStore";
 import type { UpscaleMode } from "@/app/api/upscale/route";
 import { useState } from "react";
+import CloudinaryUsageBadge from "@/components/ui/CloudinaryUsageBadge";
 
 const MODES: {
   value: UpscaleMode;
@@ -97,6 +98,8 @@ export default function UpscalePanel() {
           Plan gratuito: 25 créditos/mes.
         </p>
       </div>
+
+      <CloudinaryUsageBadge />
     </div>
   );
 }
