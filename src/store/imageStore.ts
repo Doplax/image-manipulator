@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { ImageFile, ManipulationOptions, OutputFormat } from "@/types/image";
 
-export type ToolId = "resize" | "convert" | "background";
+export type ToolId = "resize" | "convert" | "background" | "upscale";
 export type AppView = "dashboard" | "tool";
 
 interface ImageStore {

@@ -36,9 +36,19 @@ const TOOLS: {
     title: "Eliminar fondo",
     description:
       "Elimina el fondo de tus imágenes con IA directamente en el navegador. Sin coste de API, privado y rápido.",
-    badge: "IA",
+    badge: "IA local",
     badgeColor: "emerald",
     accentColor: "emerald",
+  },
+  {
+    id: "upscale",
+    icon: <Sparkles size={22} />,
+    title: "Mejorar con IA",
+    description:
+      "Super-resolución ×2, mejora automática de calidad y restauración de fotos antiguas vía Cloudinary AI.",
+    badge: "Cloudinary",
+    badgeColor: "amber",
+    accentColor: "amber",
   },
 ];
 

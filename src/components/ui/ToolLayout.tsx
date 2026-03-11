@@ -14,6 +14,8 @@ interface ToolLayoutProps {
   accentColor?: "violet" | "emerald" | "sky";
   /** Panel de controles específico de la herramienta */
   controlPanel: React.ReactNode;
+  /** Oculta el ProcessButton genérico (cuando el panel tiene sus propios controles) */
+  hideProcessButton?: boolean;
 }
 
 const accentTitle = {
@@ -28,6 +30,7 @@ export default function ToolLayout({
   icon,
   accentColor = "violet",
   controlPanel,
+  hideProcessButton = false,
 }: ToolLayoutProps) {
   const { navigateToDashboard, resetOptions } = useImageStore();
 
@@ -78,10 +81,10 @@ export default function ToolLayout({
 
       {/* Editor grid: preview | controls */}
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        {/* Left: Preview + Process button */}
+        {/* Left: Preview + optional Process button */}
         <div className="space-y-4">
           <PreviewPanel />
-          <ProcessButton />
+          {!hideProcessButton && <ProcessButton />}
         </div>
 
         {/* Right: Tool-specific controls */}
