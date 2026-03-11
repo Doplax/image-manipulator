@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ImageFile, ManipulationOptions, OutputFormat } from "@/types/image";
+import type { UpscaleMode } from "@/app/api/upscale/route";
 
 export type ToolId = "resize" | "convert" | "background" | "upscale";
 export type AppView = "dashboard" | "tool";
@@ -16,6 +17,10 @@ interface ImageStore {
   isProcessing: boolean;
   processedUrl: string | null;
   options: ManipulationOptions;
+
+  // Upscale-specific
+  upscaleMode: UpscaleMode;
+  setUpscaleMode: (mode: UpscaleMode) => void;
 
   addImages: (files: ImageFile[]) => void;
   removeImage: (id: string) => void;
@@ -60,6 +65,9 @@ export const useImageStore = create<ImageStore>((set) => ({
   isProcessing: false,
   processedUrl: null,
   options: { ...defaultOptions, resize: { ...defaultOptions.resize }, convert: { ...defaultOptions.convert } },
+
+  upscaleMode: "enhance",
+  setUpscaleMode: (mode) => set({ upscaleMode: mode }),
 
   addImages: (files) =>
     set((state) => ({ images: [...state.images, ...files] })),
