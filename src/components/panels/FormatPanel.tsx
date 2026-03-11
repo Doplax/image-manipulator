@@ -3,6 +3,8 @@
 import { useImageStore } from "@/store/imageStore";
 import { cn } from "@/lib/utils";
 import type { OutputFormat } from "@/types/image";
+import { useState } from "react";
+import { Palette, Download, Loader2 } from "lucide-react";
 
 const OUTPUT_FORMATS: { value: OutputFormat; label: string; desc: string }[] = [
   { value: "png", label: "PNG", desc: "Sin pérdida, transparencia" },
@@ -64,6 +66,104 @@ export default function FormatPanel() {
             <span>Mayor calidad</span>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Botón de conversión ──────────────────────────────────────────────────────
+
+export function ConvertProcessButton() {
+  const {
+    selectedImage,
+    options,
+    isProcessing,
+    processedUrl,
+    setProcessing,
+    setProcessedUrl,
+  } = useImageStore();
+
+  const [progress, setProgress] = useState<string | null>(null);
+
+  if (!selectedImage) return null;
+
+  const format = options.convert.format;
+
+  const handleConvert = async () => {
+    setProcessing(true);
+    setProcessedUrl(null);
+    setProgress("Convirtiendo imagen...");
+
+    try {
+      const res = await fetch(selectedImage.dataUrl);
+      const blob = await res.blob();
+
+      const formData = new FormData();
+      formData.append("image", blob, selectedImage.name);
+      formData.append(
+        "options",
+        JSON.stringify({
+          resize: {},
+          convert: { format, quality: options.convert.quality },
+          removeBackground: false,
+        })
+      );
+
+      const response = await fetch("/api/process", { method: "POST", body: formData });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Error al convertir la imagen");
+      }
+
+      const resultBlob = await response.blob();
+      setProcessedUrl(URL.createObjectURL(resultBlob));
+    } catch (error) {
+      console.error("[ConvertProcessButton]", error);
+      alert(`Error: ${error instanceof Error ? error.message : "Error desconocido"}`);
+    } finally {
+      setProcessing(false);
+      setProgress(null);
+    }
+  };
+
+  const handleDownload = () => {
+    if (!processedUrl || !selectedImage) return;
+    const baseName = selectedImage.originalName.replace(/\.[^.]+$/, "");
+    const link = document.createElement("a");
+    link.href = processedUrl;
+    link.download = `${baseName}.${format === "jpg" ? "jpg" : format}`;
+    link.click();
+  };
+
+  return (
+    <div className="flex gap-3">
+      <button
+        onClick={handleConvert}
+        disabled={isProcessing}
+        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
+      >
+        {isProcessing ? (
+          <>
+            <Loader2 size={18} className="animate-spin" />
+            {progress ?? "Convirtiendo..."}
+          </>
+        ) : (
+          <>
+            <Palette size={18} />
+            Convertir a {format.toUpperCase()}
+          </>
+        )}
+      </button>
+
+      {processedUrl && (
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-500 active:scale-[0.98]"
+        >
+          <Download size={18} />
+          Descargar
+        </button>
       )}
     </div>
   );

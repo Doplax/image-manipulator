@@ -2,7 +2,7 @@
 
 import { Palette } from "lucide-react";
 import ToolLayout from "@/components/ui/ToolLayout";
-import FormatPanel from "@/components/panels/FormatPanel";
+import FormatPanel, { ConvertProcessButton } from "@/components/panels/FormatPanel";
 
 export default function ConvertTool() {
   return (
@@ -12,6 +12,7 @@ export default function ConvertTool() {
       icon={<Palette size={18} />}
       accentColor="sky"
       controlPanel={<FormatPanel />}
+      processButton={<ConvertProcessButton />}
     />
   );
 }
